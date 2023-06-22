@@ -1,5 +1,7 @@
 package com.example.rule;
 
+import com.example.utils.TypeUtils;
+import com.google.gson.Gson;
 import lombok.Getter;
 
 import java.util.HashMap;
@@ -9,9 +11,12 @@ import java.util.Map;
 //包括执行方法所需的各种参数
 @Getter
 public class RuleContext {
+    private static Gson gson = new Gson();
+
     @Getter
     public enum ContextKey {
         AMOYUNT(Double.class, "金额"),
+        WHITE_LIST(String.class, "白名单"),
         ;
 
         Class<?> type;
@@ -30,9 +35,13 @@ public class RuleContext {
     }
 
     public void put(RuleContextData parameter) {
-        if (!parameter.getType().isInstance(parameter.getValue())) {
-            throw new RuntimeException("类型不匹配");
+        if (parameter == null) {
+            throw new RuntimeException("参数不能为空");
         }
+        System.out.println("parameter.getType():" + parameter.getType().getTypeName());
+        System.out.println("parameter.getValue():" + parameter.getValue().getClass().getName());
+        System.out.println("parameter.getType().getClass():" + parameter.getType());
+        TypeUtils.typeEquals(new RuleParameter(parameter.getType(), "", ""), parameter.getValue());
         String key = getKey(parameter.getKey());
         //方法名称重复
         if (contextDataMap.containsKey(key)) {

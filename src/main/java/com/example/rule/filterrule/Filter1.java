@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 //指定类型过滤器，要求RuleContext存在指定Key的数据
-public class Filter1 extends AbstractFilter {
+public class Filter1 extends AbstractFilter<RuleContext.ContextKey> {
     //定义必须存在的上下文数据
     private static final Map<RuleContext.ContextKey, String> keys = new HashMap<>();
 
@@ -15,8 +15,13 @@ public class Filter1 extends AbstractFilter {
         keys.put(RuleContext.ContextKey.AMOYUNT, RuleContext.ContextKey.AMOYUNT.getDes());
     }
 
+    @Override
+    public Map<RuleContext.ContextKey, String> getKeys() {
+        return keys;
+    }
+
     public Filter1(RuleContext ruleContext) {
-        super(ruleContext, keys);
+        super(ruleContext);
     }
 
     public Boolean filter1(String operation, Double amount) {

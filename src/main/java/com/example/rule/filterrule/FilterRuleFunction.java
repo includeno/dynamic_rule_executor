@@ -5,6 +5,7 @@ import com.example.rule.FilterRule;
 import com.example.rule.RuleContext;
 import com.example.rule.RuleContextData;
 import com.example.rule.RuleParameter;
+import com.example.utils.TypeUtils;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.gson.Gson;
@@ -12,6 +13,7 @@ import com.google.gson.reflect.TypeToken;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.*;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Slf4j
@@ -28,7 +30,7 @@ public enum FilterRuleFunction implements FilterRule {
     ),
     Filter2("filter2",
             Lists.newArrayList(
-                    new RuleParameter(TypeToken.getParameterized(List.class, String.class).getType(), "des1", "operation"),
+                    new RuleParameter(TypeToken.getParameterized(List.class, String.class).getType(), "白名单", "white_list"),
                     new RuleParameter(new TypeToken<Double>() {
                     }.getType(), "金额", "amount")
             ),
@@ -127,10 +129,7 @@ public enum FilterRuleFunction implements FilterRule {
             if (value == null) {
                 throw new RuntimeException("参数不存在" + parameter.getName());
             }
-            Type type = parameter.getType();
-            if (!value.getClass().equals(type)) {
-                throw new RuntimeException("参数类型不匹配" + parameter.getName());
-            }
+            TypeUtils.typeEquals(parameters.get(i), value);
             objects[i] = value;
         }
         System.out.println("objects" + Arrays.toString(objects));
@@ -144,8 +143,37 @@ public enum FilterRuleFunction implements FilterRule {
             // 获取目标方法，这里示例调用Object类的toString方法
             Class[] classes = new Class[objects.length];
             //RuleParameter中的type是基本类型，需要转换为包装类型
-            for (int i = 0; i < objects.length; i++) {
-                classes[i] = objects[i].getClass();
+            for (int i = 0; i < parameters.size(); i++) {
+                Type type = parameters.get(i).getType();
+                Type rawType = null;
+                if (type instanceof ParameterizedType) {
+                    ParameterizedType parameterizedType = (ParameterizedType) type;
+                    Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+                    // 获取泛型参数的Type对象
+                    rawType = parameterizedType.getRawType();
+                }
+                Class rawClass = null;
+                try {
+                    System.out.println("loading rawType:" + rawType);
+                    Class<?> clazz = Class.forName(rawType.getTypeName());
+                    // 使用获取到的Class对象进行后续操作
+                    rawClass = clazz;
+                } catch (Exception e) {
+                    // 处理类找不到的异常
+                    rawClass = null;
+                }
+                if (rawClass == null) {
+                    try {
+                        System.out.println("loading type:" + type);
+                        Class<?> clazz = Class.forName(type.getTypeName());
+                        // 使用获取到的Class对象进行后续操作
+                        rawClass = clazz;
+                    } catch (Exception e) {
+                        // 处理类找不到的异常
+                        rawClass = null;
+                    }
+                }
+                classes[i] = rawClass;
             }
             Method method = obj.getClass().getMethod(functionName, classes);
 
@@ -180,6 +208,9 @@ public enum FilterRuleFunction implements FilterRule {
         ruleEntity.setValue(new Gson().toJson(map));
 
         //步骤3 根据上下文和规则
+        //统计时间
+        System.out.println("开始执行规则" + LocalDateTime.now());
         FilterRuleFunction.Fileter1.executeFilter(ruleContext, ruleEntity);
+        System.out.println("结束执行规则" + LocalDateTime.now());
     }
 }
