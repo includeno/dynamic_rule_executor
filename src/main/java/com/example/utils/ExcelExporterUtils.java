@@ -6,6 +6,7 @@ import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.springframework.util.CollectionUtils;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -15,8 +16,10 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static com.example.report.ExcelReportService.*;
+
 @Slf4j
-public class ExcelExporterUtils<T extends ExcelReportService.ExcelFieldInterface> {
+public class ExcelExporterUtils {
 
     public static void main(String[] args) {
         List<String> headers = List.of("姓名", "年龄", "性别");
@@ -27,13 +30,44 @@ public class ExcelExporterUtils<T extends ExcelReportService.ExcelFieldInterface
         );
 
         //添加modify配置
-        List<ExcelReportService.Modifier> modifiers = Lists.newArrayList(
+        List<Modifier> modifiers = Lists.newArrayList(
                 ExampleFieldModifier.AGE_MODIFIER.getModifier()
         );
 
         ExcelExporterUtils exporter = new ExcelExporterUtils();
         //exporter.exportToExcel(headers, data, "test.xlsx", ExampleField.class);
         exporter.exportToExcelWithModifier(headers, data, modifiers, "testWithModifier.xlsx", ExampleField.class);
+    }
+
+    public static boolean check(List<String> headers, Class<?> clazz) {
+        preCheckClass(clazz);
+        checkExcelTitle(headers, clazz);
+        return true;
+    }
+
+    //检查Excel Title
+    private static boolean checkExcelTitle(List<String> headers, Class<?> clazz) {
+        //检查表头是否为空
+        if (CollectionUtils.isEmpty(headers)) {
+            throw new IllegalArgumentException("headers cannot be empty");
+        }
+        //检查表头是否与枚举类中的字段一一对应
+
+        return true;
+    }
+
+    private static boolean preCheckClass(Class<?> clazz) {
+        if (clazz == null) {
+            throw new IllegalArgumentException("clazz cannot be null");
+        }
+        if (clazz.getEnumConstants() == null) {
+            throw new IllegalArgumentException("clazz must be enum");
+        }
+        // 检查clazz是否实现了ExcelFieldInterface接口
+        if (!ExcelFieldInterface.class.isAssignableFrom(clazz)) {
+            throw new IllegalArgumentException("clazz must implement ExcelFieldInterface");
+        }
+        return true;
     }
 
     public <T> void exportToExcel(List<String> headers, List<Map<T, Object>> data, String filename, Class<T> clazz) {
@@ -55,7 +89,7 @@ public class ExcelExporterUtils<T extends ExcelReportService.ExcelFieldInterface
                     Cell dataCell = dataRow.createCell(j);
                     String header = headers.get(j);
                     for (T field : rowData.keySet()) {
-                        ExcelReportService.ExcelFieldInterface excelField = (ExcelReportService.ExcelFieldInterface) field;
+                        ExcelFieldInterface excelField = (ExcelFieldInterface) field;
                         if (excelField.getFieldName().equals(header)) {
                             Object value = rowData.get(excelField);
                             value = applyModifier(excelField, value); // 应用修改器调整字段格式
@@ -75,7 +109,7 @@ public class ExcelExporterUtils<T extends ExcelReportService.ExcelFieldInterface
         }
     }
 
-    public <T> void exportToExcelWithModifier(List<String> headers, List<Map<T, Object>> data, List<ExcelReportService.Modifier> modifiers, String filename, Class<T> clazz) {
+    public <T> void exportToExcelWithModifier(List<String> headers, List<Map<T, Object>> data, List<Modifier> modifiers, String filename, Class<T> clazz) {
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("Sheet1");
 
@@ -95,7 +129,7 @@ public class ExcelExporterUtils<T extends ExcelReportService.ExcelFieldInterface
                     Cell dataCell = dataRow.createCell(j);
                     String header = headers.get(j);
                     for (T field : rowData.keySet()) {
-                        ExcelReportService.ExcelFieldInterface excelField = (ExcelReportService.ExcelFieldInterface) field;
+                        ExcelFieldInterface excelField = (ExcelFieldInterface) field;
                         if (excelField.getFieldName().equals(header)) {
                             log.info("field found: {} header:{}", excelField, header);
                             Object value = rowData.get(excelField);
@@ -134,7 +168,7 @@ public class ExcelExporterUtils<T extends ExcelReportService.ExcelFieldInterface
         } // 根据需要添加其他类型的处理
     }
 
-    private static Object applyModifier(ExcelReportService.ExcelFieldInterface field, Object value) {
+    private static Object applyModifier(ExcelFieldInterface field, Object value) {
         // 这里可以根据字段类型和需求对字段值进行修改
         if (field.getFieldName() == ExampleField.AGE.getFieldName() && value instanceof Integer) {
             int age = (Integer) value;
@@ -143,83 +177,14 @@ public class ExcelExporterUtils<T extends ExcelReportService.ExcelFieldInterface
         return value;
     }
 
-    private static String applyModifier(ExcelReportService.ExcelFieldInterface field, Object value, List<ExcelReportService.Modifier> modifiers) {
+    private static String applyModifier(ExcelFieldInterface field, Object value, List<Modifier> modifiers) {
         // 这里可以根据字段类型和需求对字段值进行修改
-        List<ExcelReportService.Modifier> modifierList = modifiers.stream().filter(modifier -> modifier.getField().equals(field)).collect(Collectors.toList());
+        List<Modifier> modifierList = modifiers.stream().filter(modifier -> modifier.getField().equals(field)).collect(Collectors.toList());
         if (modifierList.size() > 0) {
             return (String) modifierList.get(0).getModifier().apply(value);
-        }
-        else{
+        } else {
             log.warn("modifier not found for field: {}", field);
             return String.valueOf(value);
-        }
-    }
-
-    public interface ExcelFieldInterface {
-        String getFieldName();
-
-        Class<?> getFieldType();
-    }
-
-    public enum ExampleField implements ExcelReportService.ExcelFieldInterface {
-        ID("id", Integer.class),
-        NAME("姓名", String.class),
-        AGE("年龄", Integer.class),
-        GENDER("性别", Double.class);
-
-        private final String fieldName;
-        private final Class<?> fieldType;
-
-        ExampleField(String fieldName, Class<?> fieldType) {
-            this.fieldName = fieldName;
-            this.fieldType = fieldType;
-        }
-
-        @Override
-        public String getFieldName() {
-            return fieldName;
-        }
-
-        @Override
-        public Class<?> getFieldType() {
-            return fieldType;
-        }
-    }
-
-    public enum ExampleFieldModifier implements ExcelReportService.ExcelFieldModifierInterface {
-        AGE_MODIFIER(ExampleField.AGE, (value) -> {
-            if (value instanceof Integer) {
-                int age = (Integer) value;
-                return age + "岁";
-            }
-            throw new IllegalArgumentException("age must be Integer");
-        }, Integer.class);
-
-        private final ExcelReportService.ExcelFieldInterface field;
-        private final ExcelReportService.Modifier modifier;
-        private final Class<?> fieldType;
-
-        <T> ExampleFieldModifier(ExcelReportService.ExcelFieldInterface field, Function<T, String> modifier, Class<T> clazz) {
-            this.field = field;
-            this.fieldType = field.getFieldType();
-            if (!fieldType.equals(clazz)) {
-                throw new IllegalArgumentException("field type must be " + clazz.getName());
-            }
-            this.modifier = new ExcelReportService.Modifier(field, modifier);
-        }
-
-        @Override
-        public ExcelReportService.ExcelFieldInterface getField() {
-            return field;
-        }
-
-        @Override
-        public ExcelReportService.Modifier getModifier() {
-            return modifier;
-        }
-
-        public static Class<?> getFieldType(ExampleFieldModifier fieldModifier) {
-            return fieldModifier.fieldType;
         }
     }
 }
