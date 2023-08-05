@@ -1,5 +1,8 @@
 package com.example.controller;
 
+import com.example.report.ExampleField;
+import com.example.report.ExampleFieldModifier;
+import com.example.report.Modifier;
 import com.example.utils.ExcelExporterUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;

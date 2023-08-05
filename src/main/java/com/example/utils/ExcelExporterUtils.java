@@ -1,6 +1,6 @@
 package com.example.utils;
 
-import com.example.report.ExcelReportService;
+import com.example.report.*;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -22,7 +22,8 @@ import static com.example.report.ExcelReportService.*;
 public class ExcelExporterUtils {
 
     public static void main(String[] args) {
-        List<String> headers = List.of("姓名", "年龄", "性别");
+        List<ExampleField> headerFields = List.of(ExampleField.NAME, ExampleField.AGE, ExampleField.GENDER);
+        List<String> headers = headerFields.stream().map(ExampleField::getFieldName).collect(Collectors.toList());
         List<Map<ExampleField, Object>> data = Lists.newArrayList(
                 Map.of(ExampleField.NAME, "张三", ExampleField.AGE, 18, ExampleField.GENDER, "男"),
                 Map.of(ExampleField.NAME, "李四", ExampleField.AGE, 19, ExampleField.GENDER, "女"),
